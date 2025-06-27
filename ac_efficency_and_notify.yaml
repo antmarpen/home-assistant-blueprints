@@ -1,0 +1,386 @@
+blueprint:
+  name: "AC Efficiency: Auto-Shut & Notify"
+  description: |
+    # ❄️ Open Doors/Windows & AC Manager
+    **Make your home more energy-efficient by ensuring your AC only runs when doors and windows are closed.**
+
+    Ever come home to find the AC running with a window or door left open? Or receive an unexpected energy bill because someone forgot to close a window? This blueprint not only shuts off your air conditioning when a door or window is detected open, but also **notifies the responsible person**—so they can take action before or immediately after the AC turns off.
+
+    ## ⚙️ Configuration
+    1. **Entities**  
+       - **Air Conditioner**: select the `climate` entity you use to control your AC.  
+       - **Windows & Doors**: choose the `binary_sensor` entities (doors/windows) to monitor for an open state.
+
+    2. **Mobile Notification**  
+       - **Mobile Devices**: pick one or more Companion App devices for the initial alert.  
+       - **Notification Title** / **Message**: customize what the user sees.  
+       - **Keep AC On** / **Turn AC Off** button labels.  
+       - **Notification Timeout**: how long a sensor must stay open before you get notified.
+
+    3. **Actions**  
+       - **Default Action on Timeout**: decide if the AC turns off or stays on when there’s no response.  
+       - **Action Timeout**: time to wait for the user’s tap before applying the default.
+
+    4. **Follow-Up Notification**  
+       - **Send Follow-Up**: enable a second voice alert (Alexa, Google Home, etc.) _after_ the AC turns off.  
+       - **Notification Services**: select one or more `notify.*` services for that voice alert.  
+       - **Follow-Up Message**: template using `%ac_name%` and `%open_entities%` for the final alert.
+
+    ℹ️ **Note:** If the user chooses **Turn AC Off** (or the action times out), the AC is always turned off first. Only then is the follow-up voice notification sent to any in-home devices.
+
+    <details>
+    <summary><b>How it works:</b></summary>
+
+    1. **Triggers**  
+       - AC changes from `off` → any mode for at least the notification timeout.  
+       - Any monitored window/door goes to `on` (open) for at least the notification timeout.
+
+    2. **Conditions**  
+       - At least one selected sensor is open.  
+       - AC is still running (state ≠ `off`).
+
+    3. **Actions**  
+       1. Send **initial mobile notification** listing open sensors with Yes/No buttons.  
+       2. **Wait** for the user’s response or until the action timeout.  
+       3. If “Turn AC Off” is chosen (or default = turn off) **and** any sensor is still open:  
+          - **Turn off** the AC service.  
+          - **Optionally** send the **follow-up voice alert**.  
+       4. If **all sensors close** before timeout, **do nothing** (AC remains on), unless “Turn AC Off” was explicitly tapped.
+
+    Need help? Visit the Community forum: https://community.home-assistant.io  
+    </details>
+
+  domain: automation
+
+  input:
+    entities:
+      name: Entities
+      icon: mdi:thermostat
+      collapsed: false
+      input:
+        ac_device:
+          name: Air Conditioner
+          description: Choose your air conditioner device
+          default: ""
+          selector:
+            entity:
+              domain: climate
+
+        entities_to_check:
+          name: Windows & Doors
+          description: Select all window/door binary_sensors to monitor
+          selector:
+            entity:
+              domain: binary_sensor
+              device_class:
+                - door
+                - window
+              multiple: true
+          default: []
+
+    mobile_notification:
+      name: Mobile Notification
+      icon: mdi:cellphone
+      collapsed: true
+      input:
+        devices_to_notify:
+          name: Mobile Devices
+          description: Mobile app device(s) to receive the initial notification
+          selector:
+            device:
+              integration: mobile_app
+              multiple: true
+          default: []
+
+        notification_title:
+          name: Notification Title
+          default: "AC is on but windows/doors are open"
+
+        notification_message:
+          name: Notification Message
+          default: "Please check these windows/doors before the AC shuts off:"
+        
+        notification_keep_ac_on_text:
+          name: Notification Keep AC On text
+          description: This text will be displayed in the mobile notification as an option, so if the user clicks on this text, the AC won't be turned off
+          default: "Keep AC On"
+
+        notification_turn_ac_off_text:
+          name: Notification Turn AC Off text
+          description: Same as the previous option, but in this case it will turn the AC off
+          default: "Turn AC Off"
+        
+        notification_message:
+          name: Notification Message
+          default: "Please check these windows/doors before the AC shuts off:"
+          
+        notification_timeout:
+          name: Notification Timeout
+          description: How long an entity must be open before notifying
+          default: "00:02:00"
+          selector:
+            time: {}
+    
+    actions:
+      name: Actions
+      icon: mdi:clock-time-five-outline
+      collapsed: true
+      input:
+        default_action:
+          name: Default Action on Timeout
+          description: Action to execute if the user does not respond
+          selector:
+            select:
+              options:
+                - label: Turn off AC
+                  value: TURN_AC_OFF
+                - label: Keep AC on
+                  value: LEAVE_AC_ON
+          default: TURN_AC_OFF
+
+        action_timeout:
+          name: Action Timeout
+          description: How long to wait for user to tap Yes/No before default action
+          default: "00:03:00"
+          selector:
+            time: {}
+
+    follow_up_notification:
+      name: Follow-Up Notification
+      icon: mdi:bell
+      collapsed: true
+      input:
+        send_follow_up:
+          name: Send follow-up voice notification?
+          description: >
+            If enabled, send a voice notification (Alexa, Google Home, etc.)
+            with the same list of open entities before turning off the AC.
+          selector:
+            boolean: {}
+          default: false
+
+        final_notify_entities:
+          name: Notification Services
+          description: >
+            Select one or more `notify.*` services (mobile_app, alexa_media, google_assistant, etc.)
+            to use for the follow-up alert.
+          selector:
+            entity:
+              domain: notify
+              multiple: true
+          default: []
+
+        follow_up_message:
+          name: Follow-Up Message
+          description: >
+            Message template.  
+            Use `%ac_name%` for the AC’s friendly name and `%open_entities%` for the list.
+          selector:
+            text: {}
+          default: >-
+            %ac_name% will shut off because these are open: %open_entities%
+
+
+variables:
+  # Entities varaibles
+  ac_device: !input ac_device
+  entities_to_check: !input entities_to_check
+
+  # Action varaibles
+  default_action: !input default_action
+  action_timeout: !input action_timeout
+
+  # Mobile notification varaibles
+  devices_to_notify: !input devices_to_notify
+  notification_title: !input notification_title
+  notification_message: !input notification_message
+  notification_keep_ac_on_text: !input notification_keep_ac_on_text
+  notification_turn_ac_off_text: !input notification_turn_ac_off_text
+  notification_timeout: !input notification_timeout
+
+
+  # Follow-up notification variables
+  send_follow_up: !input send_follow_up
+  final_notify_entities: !input final_notify_entities
+  follow_up_message: !input follow_up_message
+
+  # Slug names for mobile devices (used later to send notifications)
+  devices_slugs: >-
+    {% set ns = namespace(devices_slugs=[]) %}
+    {% for id in devices_to_notify %}
+      {% set name = device_attr(id, 'name_by_user') or device_attr(id, 'name') %}
+      {% set ns.devices_slugs = ns.devices_slugs + [ (name | slugify) ] %}
+    {% endfor %}
+    {{ ns.devices_slugs }}
+
+trigger:
+  - platform: state
+    entity_id: !input ac_device
+    from: "off"
+    for: !input notification_timeout
+
+  - platform: state
+    entity_id: !input entities_to_check
+    to: "on"
+    for: !input notification_timeout
+
+condition:
+  - condition: template
+    alias: "At least one sensor is open"
+    value_template: >
+      {{ states | selectattr('entity_id','in', entities_to_check)
+                 | selectattr('state','eq','on') | list | count > 0 }}
+
+  - condition: template
+    alias: "AC must be on"
+    value_template: "{{ states(ac_device) != 'off' }}"
+
+action:
+  - variables:
+      open_entities: >-
+        {% set o = states
+           | selectattr('entity_id','in', entities_to_check)
+           | selectattr('state','eq','on')
+           | map(attribute='name') | list %}
+        {{ o | join(', ')}}
+      ac_name: "{{ state_attr(ac_device, 'friendly_name') }}"
+      notifier_entities: >-
+        {%- set devs = devices_to_notify -%}
+        {{- states.notify
+              | selectattr('attributes.device_id','in', devs)
+              | map(attribute='entity_id')
+              | list -}}
+
+
+  # 1) Initial mobile notification (with list)
+  - repeat:
+      for_each: "{{ devices_slugs }}"
+      sequence:
+        - service: "notify.mobile_app_{{ repeat.item }}"
+          data:
+            title: "{{ notification_title }}"
+            message: >-
+              {{ notification_message }}
+              {{ open_entities }}
+            data:
+              actions:
+                - action: LEAVE_AC_ON
+                  title: !input notification_keep_ac_on_text
+                - action: TURN_AC_OFF
+                  title: !input notification_turn_ac_off_text
+
+  # 2) Wait for user tap or action_timeout
+  - wait_for_trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: TURN_AC_OFF
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: LEAVE_AC_ON
+    timeout: !input action_timeout
+    continue_on_timeout: true
+
+  - variables:
+      user_choice: >-
+        {{ wait.trigger.event.data.action
+           if wait.trigger is not none else default_action }}
+
+  # 3) If TURN_AC_OFF or default_action==TURN_AC_OFF, optionally send second notice, then turn off AC
+  - if:
+      - condition: and
+        conditions:
+          - condition: template
+            value_template: >-
+              {{ user_choice == 'TURN_AC_OFF' }}
+            alias: User choice is to turn off AC
+          - condition: template
+            # rebuild the list and check length > 0
+            value_template: >-
+              {% set open = states
+                  | selectattr('entity_id','in', entities_to_check)
+                  | selectattr('state','eq','on') | list %}
+              {{ open | count > 0 }}
+            alias: There is at least one open entity
+        alias: Check if the user choice is to turn off the AC and if there is at least one open entity
+    then:
+        # 2a) Actually turn off AC
+        - alias: Turn off AC
+          service: climate.set_hvac_mode
+          target:
+            entity_id: "{{ ac_device }}"
+          data:
+            hvac_mode: "off"
+        # 2b) Send final notification if enabled
+        - if:
+            - condition: template
+              value_template: "{{ send_follow_up }}"
+          then:
+            - variables:
+                open_entities: >-
+                  {% set o = states
+                      | selectattr('entity_id','in', entities_to_check)
+                      | selectattr('state','eq','on')
+                      | map(attribute='name') | list %}
+                  {{ o | join(', ')}}
+                rendered_final_message: >-
+                  {{ follow_up_message
+                      | replace('%ac_name%', ac_name)
+                      | replace('%open_entities%', open_entities) }}
+                ssml_message: >-
+                  {% set parts = follow_up_message.split('%open_entities%') %}
+                  <speak>
+                  {{ parts[0].replace('%ac_name%', ac_name) }} 
+                  {% set ents = open_entities.split(', ') %}
+                  {% for i in range(ents|length) %}
+                    {% if i == 0 %}
+                      {{ ents[i] }}
+                    {% elif i == ents|length - 1 %}
+                      y {{ ents[i] }}
+                    {% else %}
+                      , {{ ents[i] }}<break time="100ms"/>
+                    {% endif %}
+                  {% endfor %}
+                  {{ parts[1] }}
+                  </speak>
+            - repeat:
+                for_each: "{{ final_notify_entities }}"
+                sequence:
+                  - choose:
+                    # 1) Si es un notify.* (servicio de notificación genérico)
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ repeat.item.startswith('notify.') }}"
+                      sequence:
+                        - action: "{{ repeat.item }}"
+                          data:
+                            message: "{{ rendered_final_message }}"
+                      alias: Using "notify" entities
+
+                    # 2) Si es un media_player de Alexa (Alexa Media Player integration)
+                    - conditions:
+                        - condition: template
+                          value_template: >
+                            {% set config_id = config_entry_id(repeat.item) %}
+                            {{ config_entry_attr(config_id, 'domain') == 'alexa_media' }}
+                      sequence:
+                        - action: >
+                            notify.alexa_media_{{ repeat.item.split('.')[1] | slugify }}
+                          data:
+                            message: "{{ ssml_message }}"
+                      alias: Using "Alexa Media Player" entities
+
+                    # 3) Si es un media_player de Google Assistant
+                    - conditions:
+                        - condition: template
+                          value_template: >
+                            {{ state_attr(repeat.item, 'integration') == 'google_assistant' }}
+                      sequence:
+                        - action: tts.google_translate_say
+                          data:
+                            entity_id: "{{ repeat.item }}"
+                            message: "{{ rendered_final_message }}"
+                      alias: Using "Google Assistant" entities
+          alias: Send final notification if enabled
+    alias: Trun off AC if needed

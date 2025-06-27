@@ -70,5 +70,5 @@ Found an issue? Open an Issue in this repo.
 
 Have ideas? Let’s discuss on the PR or in the Home Assistant community: https://community.home-assistant.io
 
-
-    Made with love by antmarpen for the Home Assistant community.
+##
+Made with love by antmarpen for the Home Assistant community.

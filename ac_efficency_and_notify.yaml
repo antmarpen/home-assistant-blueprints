@@ -266,7 +266,7 @@ action:
   - repeat:
       for_each: "{{ devices_slugs }}"
       sequence:
-        - service: "notify.mobile_app_{{ repeat.item }}"
+        - action: "notify.mobile_app_{{ repeat.item }}"
           data:
             title: "{{ notification_title }}"
             message: >-
@@ -317,7 +317,7 @@ action:
     then:
         # 2a) Actually turn off AC
         - alias: Turn off AC
-          service: climate.set_hvac_mode
+          action: climate.set_hvac_mode
           target:
             entity_id: "{{ ac_device }}"
           data:

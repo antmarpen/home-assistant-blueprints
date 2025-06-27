@@ -166,8 +166,18 @@ blueprint:
             to use for the follow-up alert.
           selector:
             entity:
-              domain: notify
               multiple: true
+              filter:
+                # 1) Any notify.* service
+                - domain: notify
+
+                # 2) Any Alexa Media Player with TTS support
+                - domain: media_player
+                  integration: alexa_media
+
+                # 3) Any Google Assistant media_player with TTS support
+                - domain: media_player
+                  integration: google_assistant
           default: []
 
         follow_up_message:

@@ -365,7 +365,7 @@ action:
                       sequence:
                         - action: notify.send_message
                           data:
-                            message: "{{ rendered_final_message }}"
+                            message: "{{ ssml_message }}"
                           target:
                             entity_id: "{{ repeat.item }}"
                       alias: Using "notify" entities

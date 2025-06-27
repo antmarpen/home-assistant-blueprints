@@ -363,9 +363,11 @@ action:
                         - condition: template
                           value_template: "{{ repeat.item.startswith('notify.') }}"
                       sequence:
-                        - action: "{{ repeat.item }}"
+                        - action: notify.send_message
                           data:
                             message: "{{ rendered_final_message }}"
+                          target:
+                            entity_id: "{{ repeat.item }}"
                       alias: Using "notify" entities
 
                     # 2) Si es un media_player de Alexa (Alexa Media Player integration)
